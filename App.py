@@ -1,13 +1,13 @@
 import os
 import json
 from groq import Groq
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 import PyPDF2
 import docx
 import io
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.', static_url_path='')
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max
 
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
@@ -82,7 +82,7 @@ Return ONLY valid JSON, no markdown, no extra text."""
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return send_from_directory('.', 'index.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
@@ -118,7 +118,6 @@ def analyze():
         )
 
         response_text = completion.choices[0].message.content.strip()
-        # Strip markdown code fences if present
         if response_text.startswith("```"):
             response_text = response_text.split("```")[1]
             if response_text.startswith("json"):
@@ -126,7 +125,7 @@ def analyze():
         result = json.loads(response_text)
         return jsonify(result)
 
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         return jsonify({'error': 'Failed to parse AI response. Please try again.'}), 500
     except Exception as e:
         return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
