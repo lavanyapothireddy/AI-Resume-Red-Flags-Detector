@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume Red Flag Detector | AI-Powered Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #2a2a35;
+    --accent: #ff3c3c;
+    --accent2: #ff7b00;
+    --accent3: #ffdd00;
+    --green: #00e599;
+    --text: #f0f0f5;
+    --muted: #6b6b80;
+    --critical: #ff2d2d;
+    --high: #ff7b00;
+    --medium: #ffdd00;
+    --low: #00e599;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    padding: 48px 0 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-row {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+  }
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 0 40px rgba(255,60,60,0.4);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%,100% { box-shadow: 0 0 30px rgba(255,60,60,0.4); }
+    50% { box-shadow: 0 0 60px rgba(255,60,60,0.7); }
+  }
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px; font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .logo-text span { color: var(--accent); }
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(32px, 6vw, 52px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin-bottom: 12px;
+  }
+  header h1 em { font-style: normal; color: var(--accent); }
+  header p {
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 300;
+    max-width: 520px;
+    line-height: 1.6;
+  }
+
+  /* Upload Section */
+  .upload-section { padding: 48px 0; }
+
+  .tabs {
+    display: flex; gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 28px;
+    width: fit-content;
+  }
+  .tab {
+    padding: 10px 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: white;
+  }
+  .tab:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Drop Zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .dropzone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(255,60,60,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: var(--surface2);
+    box-shadow: 0 0 40px rgba(255,60,60,0.1);
+  }
+  .dropzone-icon { font-size: 48px; margin-bottom: 16px; }
+  .dropzone h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .dropzone p { color: var(--muted); font-size: 14px; }
+  .dropzone .file-types {
+    margin-top: 16px;
+    display: flex; gap: 8px; justify-content: center;
+  }
+  .file-type-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+  }
+  #file-input { display: none; }
+
+  /* Textarea */
+  textarea {
+    width: 100%;
+    min-height: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 24px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  /* File selected state */
+  .file-selected {
+    background: var(--surface2);
+    border: 1px solid var(--green);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px;
+  }
+  .file-selected .icon { font-size: 20px; }
+  .file-selected .name { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .file-selected .remove {
+    margin-left: auto; cursor: pointer;
+    color: var(--muted); font-size: 18px;
+    transition: color 0.2s;
+  }
+  .file-selected .remove:hover { color: var(--accent); }
+
+  /* Analyze Button */
+  .analyze-btn {
+    margin-top: 24px;
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+  }
+  .analyze-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1));
+  }
+  .analyze-btn:hover { background: #e62e2e; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(255,60,60,0.4); }
+  .analyze-btn:active { transform: translateY(0); }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Loading */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 80px 0;
+  }
+  .loading.visible { display: block; }
+  .scanner {
+    width: 80px; height: 80px;
+    margin: 0 auto 24px;
+    position: relative;
+  }
+  .scanner-ring {
+    width: 80px; height: 80px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    position: absolute; inset: 0;
+  }
+  .scanner-ring:nth-child(2) {
+    width: 60px; height: 60px;
+    top: 10px; left: 10px;
+    border-top-color: var(--accent2);
+    animation-duration: 0.7s;
+    animation-direction: reverse;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .loading p { color: var(--muted); font-size: 14px; }
+
+  /* Results */
+  .results { display: none; padding-bottom: 80px; }
+  .results.visible { display: block; }
+
+  /* Score Card */
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    margin-bottom: 28px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 40px;
+    align-items: center;
+  }
+  .score-circle {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border: 3px solid;
+    position: relative;
+  }
+  .score-number {
+    font-family: 'Syne', sans-serif;
+    font-size: 40px; font-weight: 800;
+    line-height: 1;
+  }
+  .score-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .score-info h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px; font-weight: 800;
+    margin-bottom: 10px;
+  }
+  .score-info p { color: var(--muted); line-height: 1.6; font-size: 15px; }
+  .risk-badge {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 8px 20px;
+    border-radius: 100px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Category Grid */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 700;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .categories-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .category-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .cat-status { font-size: 18px; flex-shrink: 0; }
+  .cat-name { font-size: 13px; font-weight: 500; }
+  .cat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+
+  /* Red Flags List */
+  .flags-list { margin-bottom: 32px; display: flex; flex-direction: column; gap: 16px; }
+  .flag-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .flag-card:hover { border-color: var(--muted); }
+  .flag-header {
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 16px;
+    cursor: pointer;
+  }
+  .severity-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .flag-category {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .flag-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px; font-weight: 700;
+  }
+  .severity-tag {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+  .flag-body {
+    padding: 0 24px 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    display: none;
+  }
+  .flag-body.open { display: block; }
+  .flag-desc { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 14px; }
+  .suggestion-box {
+    background: var(--surface2);
+    border-left: 3px solid var(--green);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 14px; line-height: 1.6;
+  }
+  .suggestion-box strong { color: var(--green); font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+
+  /* Strengths */
+  .strengths-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 32px; }
+  .strength-tag {
+    background: rgba(0, 229, 153, 0.1);
+    border: 1px solid rgba(0, 229, 153, 0.3);
+    color: var(--green);
+    padding: 8px 16px;
+    border-radius: 100px;
+    font-size: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Re-analyze button */
+  .reanalyze-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 32px;
+  }
+  .reanalyze-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Error */
+  .error-box {
+    display: none;
+    background: rgba(255,45,45,0.1);
+    border: 1px solid rgba(255,45,45,0.4);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 16px;
+    color: var(--critical);
+    font-size: 14px;
+  }
+  .error-box.visible { display: block; }
+
+  /* Utilities */
+  .CRITICAL { color: var(--critical); }
+  .HIGH { color: var(--high); }
+  .MEDIUM { color: var(--medium); }
+  .LOW, .PASS { color: var(--green); }
+
+  @media (max-width: 640px) {
+    .score-card { grid-template-columns: 1fr; text-align: center; }
+    .risk-badge { width: fit-content; margin: 0 auto; }
+    header h1 { letter-spacing: -1px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">🚩</div>
+      <div class="logo-text">Resume<span>Scan</span></div>
+    </div>
+    <h1>AI <em>Red Flag</em><br>Detector</h1>
+    <p>Upload any resume and get an instant AI-powered analysis of red flags, concerns, ATS compatibility, and actionable improvement suggestions.</p>
+  </header>
+
+  <div class="upload-section" id="upload-section">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('file')">📁 Upload File</button>
+      <button class="tab" onclick="switchTab('paste')">📋 Paste Text</button>
+    </div>
+
+    <!-- File Upload Tab -->
+    <div class="tab-content active" id="tab-file">
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+        <div class="dropzone-icon">📄</div>
+        <h3>Drop your resume here</h3>
+        <p>or click to browse your files</p>
+        <div class="file-types">
+          <span class="file-type-badge">PDF</span>
+          <span class="file-type-badge">DOCX</span>
+          <span class="file-type-badge">TXT</span>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf,.docx,.txt">
+      <div class="file-selected" id="file-selected" style="display:none;">
+        <span class="icon">✅</span>
+        <span class="name" id="file-name"></span>
+        <span class="remove" onclick="removeFile()">✕</span>
+      </div>
+    </div>
+
+    <!-- Paste Tab -->
+    <div class="tab-content" id="tab-paste">
+      <textarea id="resume-text" placeholder="Paste your resume text here...&#10;&#10;Include all sections: contact info, work experience, education, skills, etc."></textarea>
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+    <button class="analyze-btn" onclick="analyzeResume()">🔍 Analyze for Red Flags</button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="scanner">
+      <div class="scanner-ring"></div>
+      <div class="scanner-ring"></div>
+    </div>
+    <h3>Scanning your resume...</h3>
+    <p>AI is analyzing for 8 categories of red flags</p>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <button class="reanalyze-btn" onclick="resetApp()">← Analyze Another Resume</button>
+
+    <!-- Score Card -->
+    <div class="score-card" id="score-card">
+      <div class="score-circle" id="score-circle">
+        <div class="score-number" id="score-number">--</div>
+        <div class="score-label">SCORE</div>
+      </div>
+      <div class="score-info">
+        <h2 id="result-heading">Analysis Complete</h2>
+        <p id="result-summary"></p>
+      </div>
+      <div class="risk-badge" id="risk-badge">--</div>
+    </div>
+
+    <!-- Category Checks -->
+    <div class="section-title">Category Breakdown</div>
+    <div class="categories-grid" id="categories-grid"></div>
+
+    <!-- Red Flags -->
+    <div class="section-title" id="flags-section-title">Red Flags Found</div>
+    <div class="flags-list" id="flags-list"></div>
+
+    <!-- Strengths -->
+    <div class="section-title" id="strengths-title">Strengths Detected</div>
+    <div class="strengths-grid" id="strengths-grid"></div>
+  </div>
+</div>
+
+<script>
+let selectedFile = null;
+let activeTab = 'file';
+
+// Tab switching
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'file') || (i === 1 && tab === 'paste'));
+  });
+  document.getElementById('tab-file').classList.toggle('active', tab === 'file');
+  document.getElementById('tab-paste').classList.toggle('active', tab === 'paste');
+}
+
+// Drag & drop
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  selectedFile = file;
+  document.getElementById('file-name').textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+  document.getElementById('file-selected').style.display = 'flex';
+  document.getElementById('dropzone').style.display = 'none';
+}
+
+function removeFile() {
+  selectedFile = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-selected').style.display = 'none';
+  document.getElementById('dropzone').style.display = 'block';
+}
+
+async function analyzeResume() {
+  const errorBox = document.getElementById('error-box');
+  errorBox.classList.remove('visible');
+
+  const formData = new FormData();
+  if (activeTab === 'file') {
+    if (!selectedFile) { showError('Please select a resume file.'); return; }
+    formData.append('file', selectedFile);
+  } else {
+    const text = document.getElementById('resume-text').value.trim();
+    if (!text) { showError('Please paste your resume text.'); return; }
+    formData.append('text', text);
+  }
+
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('loading').classList.add('visible');
+  document.getElementById('results').classList.remove('visible');
+
+  try {
+    const response = await fetch('/analyze', { method: 'POST', body: formData });
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      throw new Error(data.error || 'Analysis failed');
+    }
+
+    renderResults(data);
+  } catch (err) {
+    document.getElementById('upload-section').style.display = 'block';
+    document.getElementById('loading').classList.remove('visible');
+    showError(err.message || 'Something went wrong. Please try again.');
+  }
+}
+
+function renderResults(data) {
+  document.getElementById('loading').classList.remove('visible');
+
+  const score = data.overall_score || 0;
+  const risk = data.risk_level || 'UNKNOWN';
+  const colorMap = { LOW: '#00e599', MEDIUM: '#ffdd00', HIGH: '#ff7b00', CRITICAL: '#ff2d2d' };
+  const color = colorMap[risk] || '#6b6b80';
+
+  // Score circle
+  const circle = document.getElementById('score-circle');
+  circle.style.borderColor = color;
+  document.getElementById('score-number').style.color = color;
+  document.getElementById('score-number').textContent = score;
+
+  // Summary
+  const headingMap = {
+    LOW: '✅ Looks Good!', MEDIUM: '⚠️ Some Concerns', HIGH: '🚨 Major Red Flags', CRITICAL: '🔴 Critical Issues'
+  };
+  document.getElementById('result-heading').textContent = headingMap[risk] || 'Analysis Complete';
+  document.getElementById('result-summary').textContent = data.summary || '';
+
+  // Risk badge
+  const badge = document.getElementById('risk-badge');
+  badge.textContent = risk + ' RISK';
+  badge.style.background = color + '22';
+  badge.style.color = color;
+  badge.style.border = `1px solid ${color}44`;
+
+  // Categories
+  const catGrid = document.getElementById('categories-grid');
+  catGrid.innerHTML = '';
+  const catLabels = {
+    employment_gaps: 'Employment Gaps', job_hopping: 'Job Hopping',
+    skills_mismatch: 'Skills Match', education_issues: 'Education',
+    formatting_issues: 'Formatting', ats_compatibility: 'ATS Friendly',
+    exaggeration_claims: 'Authenticity', contact_info: 'Contact Info'
+  };
+  const statusIcon = { PASS: '✅', FAIL: '❌', WARNING: '⚠️' };
+  const cats = data.categories_analyzed || {};
+  for (const [key, val] of Object.entries(cats)) {
+    catGrid.innerHTML += `
+      <div class="category-item">
+        <div class="cat-status">${statusIcon[val] || '❓'}</div>
+        <div>
+          <div class="cat-name">${catLabels[key] || key}</div>
+          <div class="cat-label ${val}">${val}</div>
+        </div>
+      </div>`;
+  }
+
+  // Red Flags
+  const flagsList = document.getElementById('flags-list');
+  flagsList.innerHTML = '';
+  const flags = data.red_flags || [];
+  const flagColors = { CRITICAL: '#ff2d2d', HIGH: '#ff7b00', MEDIUM: '#ffdd00', LOW: '#00e599' };
+  document.getElementById('flags-section-title').textContent = `🚩 Red Flags Found (${flags.length})`;
+
+  if (flags.length === 0) {
+    flagsList.innerHTML = '<div style="color: var(--green); padding: 20px 0; font-size: 15px;">✅ No significant red flags detected!</div>';
+  } else {
+    flags.forEach((flag, i) => {
+      const col = flagColors[flag.severity] || '#6b6b80';
+      flagsList.innerHTML += `
+        <div class="flag-card">
+          <div class="flag-header" onclick="toggleFlag(${i})">
+            <div class="severity-dot" style="background:${col}; box-shadow: 0 0 8px ${col}88;"></div>
+            <div>
+              <div class="flag-category">${flag.category || ''}</div>
+              <div class="flag-title">${flag.title || ''}</div>
+            </div>
+            <div class="severity-tag" style="background:${col}22; color:${col}; border:1px solid ${col}44;">${flag.severity}</div>
+          </div>
+          <div class="flag-body" id="flag-body-${i}">
+            <div class="flag-desc">${flag.description || ''}</div>
+            ${flag.suggestion ? `<div class="suggestion-box"><strong>💡 SUGGESTION</strong>${flag.suggestion}</div>` : ''}
+          </div>
+        </div>`;
+    });
+  }
+
+  // Strengths
+  const strengthsGrid = document.getElementById('strengths-grid');
+  strengthsGrid.innerHTML = '';
+  const strengths = data.strengths || [];
+  document.getElementById('strengths-title').textContent = `💪 Strengths Detected (${strengths.length})`;
+  strengths.forEach(s => {
+    strengthsGrid.innerHTML += `<div class="strength-tag">✓ ${s}</div>`;
+  });
+
+  document.getElementById('results').classList.add('visible');
+}
+
+function toggleFlag(i) {
+  const body = document.getElementById('flag-body-' + i);
+  body.classList.toggle('open');
+}
+
+function resetApp() {
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('upload-section').style.display = 'block';
+  removeFile();
+  document.getElementById('resume-text').value = '';
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '⚠️ ' + msg;
+  box.classList.add('visible');
+}
+</script>
+</body>
+</html>
