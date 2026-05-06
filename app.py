@@ -1,13 +1,13 @@
 import os
 import json
 from groq import Groq
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
-import PyPDF2
+from pypdf import PdfReader
 import docx
 import io
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max
 
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
@@ -18,10 +18,10 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def extract_text_from_pdf(file_bytes):
-    reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+    reader = PdfReader(io.BytesIO(file_bytes))
     text = ""
     for page in reader.pages:
-        text += page.extract_text() + "\n"
+        text += (page.extract_text() or "") + "\n"
     return text
 
 def extract_text_from_docx(file_bytes):
@@ -82,7 +82,7 @@ Return ONLY valid JSON, no markdown, no extra text."""
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
@@ -115,9 +115,11 @@ def analyze():
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Analyze this resume for red flags:\n\n{resume_text}"}
             ],
+            temperature=0.3,
         )
 
         response_text = completion.choices[0].message.content.strip()
+        # Strip markdown code fences if present
         if response_text.startswith("```"):
             response_text = response_text.split("```")[1]
             if response_text.startswith("json"):
@@ -125,7 +127,7 @@ def analyze():
         result = json.loads(response_text)
         return jsonify(result)
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         return jsonify({'error': 'Failed to parse AI response. Please try again.'}), 500
     except Exception as e:
         return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
